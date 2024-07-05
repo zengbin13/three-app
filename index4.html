@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>docment</title>
+    <meta name="description" content=" " />
+    <meta name="keywords" content=" " />
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+  </head>
+  <body>
+    <script>
+      const xCount = 600;
+      const zCount = 28;
+      let xList = Array.from({ length: xCount + 1 }, (_, index) => index * 10);
+      let yList = Array.from({ length: 601 * 29 }, (_, index) => index);
+      let zList = Array.from({ length: zCount + 1 }, (_, index) => index * 10);
+
+      let xIndex = 0;
+      let zIndex = 0;
+      const v3List = [];
+      for (let yIndex = 0; yIndex < yList.length; yIndex++) {
+        v3List.push(xList[xIndex], yList[yIndex], zList[zIndex]);
+        xIndex++;
+        if (xIndex == xCount) {
+          xIndex = 0;
+          zIndex++;
+          if (zIndex == zCount) zIndex = 0;
+        }
+      }
+      console.log(v3List);
+    </script>
+  </body>
+</html>
