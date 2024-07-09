@@ -11,16 +11,16 @@ const textBulider = new TextUtil();
 
 // 创建 场景/相机/渲染器
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 8000);
-const renderer = new THREE.WebGLRenderer();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 1000);
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+});
 const controls = new OrbitControls(camera, renderer.domElement);
 
 async function fetchAndConvertByteStream() {
   try {
     // 使用 fetch API 获取数据
-    let response = await fetch(
-      'http://192.168.22.155:8099/yard/stock/data/file?fileName=1_GridContent.txt'
-    );
+    let response = await fetch('/api/yard/stock/data/file?fileName=1_GridContent.txt');
 
     // 检查请求是否成功
     if (!response.ok) {
@@ -29,6 +29,7 @@ async function fetchAndConvertByteStream() {
 
     // 将响应数据读取为 ArrayBuffer
     let arrayBuffer = await response.arrayBuffer();
+    console.log(arrayBuffer);
 
     // 创建 DataView 用于读取 ArrayBuffer
     let dataView = new DataView(arrayBuffer);
@@ -44,60 +45,82 @@ async function fetchAndConvertByteStream() {
       const value = dataView.getFloat32(i * 4, true); // true 表示小端字节序
       floatArray[i] = value < 0.1 ? 0 : parseInt(value * 10);
     }
-
+    console.log(floatArray.length, 'floatArray');
     return floatArray;
   } catch (error) {
     console.error('Error fetching and processing data:', error);
   }
 }
 
-const init = () => {
+const init = async () => {
   initScene();
   initCamera();
   createLight();
   creatPlane();
+  await textBulider.init();
   creatStocklinePlane();
-  createText();
   // importPlantModel();
   initHelper();
   // renderLightAndShadow();
+  createStockline();
 
   initRenderer();
 };
 
-const createText = async () => {
-  await textBulider.init();
-  const A = await textBulider.createText('A');
-  scene.add(A);
-};
-
 const creatPlane = () => {
-  const planeGeo = new THREE.PlaneGeometry(800, 500, 10, 10);
+  const planeGeo = new THREE.PlaneGeometry(500, 300, 10, 10);
+  planeGeo.translate(500 / 2, -300 / 2, 0);
   const planeMat = new THREE.MeshStandardMaterial({
     wireframe: true,
   });
   const plane = new THREE.Mesh(planeGeo, planeMat);
-  console.log(plane);
   plane.rotation.x = -Math.PI / 2;
+  console.log(plane.position);
   scene.add(plane);
 };
 
-const creatStocklinePlane = () => {
-  const StocklinePlaneGeo = new THREE.PlaneGeometry(600, 28, 10, 10);
-  const StocklinePlaneMat = new THREE.MeshStandardMaterial({
+const creatStocklinePlane = (name = 'A') => {
+  const width = 600,
+    height = 30;
+  const stocklinePlaneGeo = new THREE.PlaneGeometry(width, height, 10, 10);
+  stocklinePlaneGeo.translate(width / 2, -height / 2, 0);
+  const stocklinePlaneMat = new THREE.MeshStandardMaterial({
     wireframe: false,
     color: new THREE.Color('#c2d1e5'),
   });
-  const Stockline = new THREE.Mesh(StocklinePlaneGeo, StocklinePlaneMat);
+  const Stockline = new THREE.Mesh(stocklinePlaneGeo, stocklinePlaneMat);
   Stockline.rotation.x = -Math.PI / 2;
-  scene.add(Stockline);
+  // 文字
+  const text1 = textBulider.createText(name, {
+    size: 20,
+    depth: 3,
+  });
+  text1.rotation.x = -Math.PI / 2;
+  text1.position.z = 24;
+  text1.position.x = -20;
+
+  const text2 = textBulider.createText(name, {
+    size: 20,
+    depth: 3,
+  });
+  text2.rotation.x = -Math.PI / 2;
+  text2.position.z = 24;
+  text2.position.x = width + 0;
+  // 组合
+  const group = new THREE.Group();
+  group.add(Stockline);
+  group.add(text1);
+  group.add(text2);
+  // 移动
+  // group.position.z = 100;
+  scene.add(group);
 };
 
 const createStocklineGeometry = async () => {
   try {
     const yList = await fetchAndConvertByteStream();
 
-    const xCount = 6000;
+    const xCount = 4000;
     const zCount = 280;
     let xList = Array.from({ length: xCount + 1 }, (_, index) => index);
     let zList = Array.from({ length: zCount + 1 }, (_, index) => index);
@@ -105,8 +128,9 @@ const createStocklineGeometry = async () => {
     let xIndex = 0;
     let zIndex = 0;
     const v3List = [];
+    console.log(yList.length, 'yList.length');
     for (let yIndex = 0; yIndex < yList.length; yIndex++) {
-      v3List.push(xList[xIndex], yList[yIndex], zList[zIndex]);
+      v3List.push(xList[xIndex] / 10, yList[yIndex] / 10, zList[zIndex] / 10);
       xIndex++;
       if (xIndex == xCount) {
         xIndex = 0;
@@ -123,7 +147,7 @@ const createStocklineGeometry = async () => {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
     // 索引信息
-    // 将三维坐标投影到二维平面，例如忽略 z 坐标
+    // 将三维坐标投影到二维平面，例如忽略 y 坐标
     const projectedPoints = [];
     for (let i = 0; i < v3List.length; i += 3) {
       projectedPoints.push(v3List[i], v3List[i + 2]); // 仅保留 x 和 z
@@ -145,32 +169,19 @@ const createStocklineGeometry = async () => {
 const createStocklineMaterial = () => {
   // 顶点着色器
   const vertexShader = `
+  // 指定浮点数的精度为高精度
   precision highp float;
-  varying vec3 fPosition;
-  varying vec2 vUv;
-  varying float noise;
-
-  // 简单的2D噪声函数
-  float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-  }
-
-  float noise2d(vec2 st) {
-    vec2 i = floor(st);
-    vec2 f = fract(st);
-    float a = random(i);
-    float b = random(i + vec2(1.0, 0.0));
-    float c = random(i + vec2(0.0, 1.0));
-    float d = random(i + vec2(1.0, 1.0));
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-  }
+  // 声明varying变量(用于在顶点着色器和片元着色器间传递数据)
+  varying vec3 fPosition; // 传递顶点在世界空间中的位置
+  varying vec2 vUv; // 传递纹理坐标(UV 坐标)
 
   void main() {
+    // 将顶点位置从模型空间转换到视图空间
     vec4 pos = modelViewMatrix * vec4(position, 1.0);
+    // 将顶点位置从视图空间转换到裁剪空间
     gl_Position = projectionMatrix * pos;
+    // 将顶点位置从模型空间转换到世界空间
     fPosition = (modelMatrix * vec4(position, 1.0)).xyz;
-    noise = noise2d(position.xz * 0.1); // 调整噪声频率
     vUv = uv;
   }
 `;
@@ -181,13 +192,15 @@ const createStocklineMaterial = () => {
   uniform float interval;
   varying vec3 fPosition;
   varying vec2 vUv;
-  varying float noise;
 
   void d_color() {
-    float dataY = fPosition.y + noise * 0.1; // 添加噪声
+    float dataY = fPosition.y;   
     float dataI = interval;
+    // if(dataY <= 0.01) {
+    //   discard; // 不渲染高度为0的点
+    // }
     if (dataY <= -dataI) {
-      gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0); // 蓝色
+      gl_FragColor = vec4(0, 0, 1.0, 0); // 蓝
     } else if (dataY > -dataI && dataY <= 0.0) {
       float g = 1.0 - (-dataY / dataI);
       gl_FragColor = vec4(0.0, g, 1.0, 1.0); // 蓝绿
@@ -222,7 +235,78 @@ const createStocklineMaterial = () => {
   const uniforms = {
     interval: {
       type: 'f',
-      value: 10.0, // 设置一个适当的区间值
+      value: 1.0, // 设置一个适当的区间值
+    },
+  };
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: vertexShader,
+    fragmentShader: fragmentShader,
+  });
+
+  return material;
+};
+
+const createStocklineSegmentationMaterial = () => {
+  // 顶点着色器
+  const vertexShader = `
+  precision highp float;
+  varying vec3 fPosition;
+  varying vec2 vUv;
+
+  void main() {
+    vec4 pos = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * pos;
+    fPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+    vUv = uv;
+  }
+`;
+
+  // 片段着色器
+  const fragmentShader = `
+  precision highp float;
+  uniform float segment;
+  uniform float length;
+  varying vec3 fPosition;
+  varying vec2 vUv;
+
+  void d_color() {
+    float dataX = fPosition.x;   
+    float dataS = segment;
+    float dataL = length;
+     
+    // 计算每段的长度
+    float segmentLength = dataL / dataS;
+
+    // 计算当前点所在的段的索引
+    int segmentIndex = int(floor(dataX / segmentLength));
+
+     // 根据段的索引设置颜色
+    vec4 color;
+    if (mod(float(segmentIndex), 2.0) == 0.0) {
+        // 偶数索引
+        color = vec4(1.0, 0.0, 0.0, 1.0); // 红色
+    } else {
+        // 奇数索引
+        color = vec4(0.0, 0.0, 1.0, 1.0); // 蓝色
+    }
+    gl_FragColor = color;
+  }
+
+  void main(){
+    d_color();
+  }
+`;
+
+  const uniforms = {
+    segment: {
+      type: 'f',
+      value: 4.0, // 段数
+    },
+    length: {
+      type: 'f',
+      value: 400.0, // 长度
     },
   };
 
@@ -238,8 +322,11 @@ const createStocklineMaterial = () => {
 const createStockline = async () => {
   try {
     const geometry = await createStocklineGeometry();
-    const material = createStocklineMaterial();
+    const material = createStocklineSegmentationMaterial();
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.y = 0.01;
+    mesh.position.z = 1;
+    console.log(mesh);
     scene.add(mesh);
   } catch (error) {
     console.log(error);
@@ -289,6 +376,8 @@ const initRenderer = () => {
   document.body.innerHTML = '';
   document.body.appendChild(renderer.domElement);
   // renderer.render(scene, camera)
+
+  controls.target = new THREE.Vector3(400, 0, 0);
   const animate = () => {
     controls.update();
     renderer.render(scene, camera);
@@ -322,8 +411,8 @@ const initScene = () => {
 透视相机设置: 位置与指向
 */
 const initCamera = () => {
-  camera.position.set(0, 0, 1000);
-  camera.lookAt(new THREE.Vector3(10, 10, 10));
+  camera.position.set(400, 200, 400);
+  // camera.lookAt(new THREE.Vector3(400, 100, 10)); 添加控制器无效
 };
 
 /*

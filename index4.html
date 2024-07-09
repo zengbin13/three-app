@@ -1,35 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>docment</title>
-    <meta name="description" content=" " />
-    <meta name="keywords" content=" " />
-    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+    <title>Read Float from File</title>
   </head>
   <body>
+    <input type="file" id="fileInput" />
     <script>
-      const xCount = 600;
-      const zCount = 28;
-      let xList = Array.from({ length: xCount + 1 }, (_, index) => index * 10);
-      let yList = Array.from({ length: 601 * 29 }, (_, index) => index);
-      let zList = Array.from({ length: zCount + 1 }, (_, index) => index * 10);
-
-      let xIndex = 0;
-      let zIndex = 0;
-      const v3List = [];
-      for (let yIndex = 0; yIndex < yList.length; yIndex++) {
-        v3List.push(xList[xIndex], yList[yIndex], zList[zIndex]);
-        xIndex++;
-        if (xIndex == xCount) {
-          xIndex = 0;
-          zIndex++;
-          if (zIndex == zCount) zIndex = 0;
+      document.getElementById('fileInput').addEventListener('change', function (event) {
+        const file = event.target.files[0];
+        if (!file) {
+          return;
         }
-      }
-      console.log(v3List);
+
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+          const arrayBuffer = e.target.result;
+          // 创建 DataView 用于读取 ArrayBuffer
+          let dataView = new DataView(arrayBuffer);
+
+          // 计算 float 数组的长度
+          let floatArrayLength = arrayBuffer.byteLength / 4;
+
+          // 创建一个数组存储 float 数据
+          let floatArray = new Float32Array(floatArrayLength);
+
+          // 将每4个字节转换为一个 float
+          for (let i = 0; i < floatArrayLength; i++) {
+            const value = dataView.getFloat32(i * 4, true); // true 表示小端字节序
+            floatArray[i] = value < 0.1 ? 0 : parseInt(value * 10);
+          }
+          console.log(floatArray);
+          return floatArray;
+        };
+
+        reader.readAsArrayBuffer(file);
+      });
     </script>
   </body>
 </html>

@@ -17,8 +17,8 @@ export default class TextUtil {
 
     // 默认几何体参数
     const initOptions = {
-      size: 80, //字体大小
-      height: 5, // 挤出文本的厚度
+      size: 10, //字体大小
+      depth: 2, // 挤出文本的厚度
       curveSegments: 12, // 曲线上点的数量。默认值为12
       bevelEnabled: false, // 是否开启斜角，默认为false
       bevelThickness: 10, // 文本上斜角的深度，默认值为20
@@ -32,7 +32,8 @@ export default class TextUtil {
     };
     // 默认材质
     const initMaterialOptions = {
-      color: 0xffffff, // 默认颜色
+      color: 0xffe092,
+      flatShading: true,
       wireframe: false, // 默认非线框模式
     };
     this.defaultMaterialOptions = {
@@ -55,7 +56,7 @@ export default class TextUtil {
       );
     });
   }
-  async createText(text = '', fontUrl = undefined, options = {}, materialOptions = {}) {
+  async createTextAsync(text = '', options = {}, materialOptions = {}, fontUrl = undefined) {
     if (!this.fontLoaded) {
       // 如果字体还没有加载，等待字体加载完成
       await this.init();
@@ -66,7 +67,20 @@ export default class TextUtil {
       ...this.options,
       ...options,
     });
-    const textMaterial = new THREE.MeshBasicMaterial({
+    const textMaterial = new THREE.MeshPhongMaterial({
+      ...this.defaultMaterialOptions,
+      ...materialOptions, // 覆盖默认材质选项
+    });
+    const mesh = new THREE.Mesh(textGeometry, textMaterial);
+    return mesh;
+  }
+  createText(text = '', options = {}, materialOptions = {}) {
+    const textGeometry = new TextGeometry(text, {
+      font: this.defaultFont,
+      ...this.options,
+      ...options,
+    });
+    const textMaterial = new THREE.MeshPhongMaterial({
       ...this.defaultMaterialOptions,
       ...materialOptions, // 覆盖默认材质选项
     });
