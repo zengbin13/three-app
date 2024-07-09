@@ -6,6 +6,8 @@ import { ref, onMounted } from 'vue';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import Delaunator from 'delaunator';
+import TextUtil from './utils/textUtil';
+const textBulider = new TextUtil();
 
 // 创建 场景/相机/渲染器
 const scene = new THREE.Scene();
@@ -54,11 +56,41 @@ const init = () => {
   initCamera();
   createLight();
   creatPlane();
-  // createA();
+  creatStocklinePlane();
+  createText();
   // importPlantModel();
   initHelper();
   // renderLightAndShadow();
+
   initRenderer();
+};
+
+const createText = async () => {
+  await textBulider.init();
+  const A = await textBulider.createText('A');
+  scene.add(A);
+};
+
+const creatPlane = () => {
+  const planeGeo = new THREE.PlaneGeometry(800, 500, 10, 10);
+  const planeMat = new THREE.MeshStandardMaterial({
+    wireframe: true,
+  });
+  const plane = new THREE.Mesh(planeGeo, planeMat);
+  console.log(plane);
+  plane.rotation.x = -Math.PI / 2;
+  scene.add(plane);
+};
+
+const creatStocklinePlane = () => {
+  const StocklinePlaneGeo = new THREE.PlaneGeometry(600, 28, 10, 10);
+  const StocklinePlaneMat = new THREE.MeshStandardMaterial({
+    wireframe: false,
+    color: new THREE.Color('#c2d1e5'),
+  });
+  const Stockline = new THREE.Mesh(StocklinePlaneGeo, StocklinePlaneMat);
+  Stockline.rotation.x = -Math.PI / 2;
+  scene.add(Stockline);
 };
 
 const createStocklineGeometry = async () => {
@@ -100,6 +132,9 @@ const createStocklineGeometry = async () => {
     const delaunay = new Delaunator(projectedPoints);
     const indexList = delaunay.triangles;
     geometry.setIndex(new THREE.BufferAttribute(indexList, 1));
+
+    // 自动计算法线
+    geometry.computeVertexNormals();
 
     return geometry;
   } catch (error) {
@@ -200,7 +235,7 @@ const createStocklineMaterial = () => {
   return material;
 };
 
-const creatPlane = async () => {
+const createStockline = async () => {
   try {
     const geometry = await createStocklineGeometry();
     const material = createStocklineMaterial();
@@ -287,8 +322,8 @@ const initScene = () => {
 透视相机设置: 位置与指向
 */
 const initCamera = () => {
-  camera.position.set(3000, 100, 100);
-  camera.lookAt(new THREE.Vector3(10, 100, 100));
+  camera.position.set(0, 0, 1000);
+  camera.lookAt(new THREE.Vector3(10, 10, 10));
 };
 
 /*
