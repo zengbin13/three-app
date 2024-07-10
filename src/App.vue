@@ -11,7 +11,7 @@ const textBulider = new TextUtil();
 
 // 创建 场景/相机/渲染器
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
 const renderer = new THREE.WebGLRenderer({
   antialias: true,
 });
@@ -20,7 +20,11 @@ const controls = new OrbitControls(camera, renderer.domElement);
 async function fetchAndConvertByteStream() {
   try {
     // 使用 fetch API 获取数据
-    let response = await fetch('/api/yard/stock/data/file?fileName=1_GridContent.txt');
+    // let response = await fetch('/api/yard/stock/data/file?fileName=1_GridContent.txt');
+
+    let response = await fetch('/public/text/A_GridContent.txt', {
+      responseType: 'arraybuffer',
+    });
 
     // 检查请求是否成功
     if (!response.ok) {
@@ -29,6 +33,7 @@ async function fetchAndConvertByteStream() {
 
     // 将响应数据读取为 ArrayBuffer
     let arrayBuffer = await response.arrayBuffer();
+
     console.log(arrayBuffer);
 
     // 创建 DataView 用于读取 ArrayBuffer
@@ -45,7 +50,6 @@ async function fetchAndConvertByteStream() {
       const value = dataView.getFloat32(i * 4, true); // true 表示小端字节序
       floatArray[i] = value < 0.1 ? 0 : parseInt(value * 10);
     }
-    console.log(floatArray.length, 'floatArray');
     return floatArray;
   } catch (error) {
     console.error('Error fetching and processing data:', error);
@@ -58,13 +62,33 @@ const init = async () => {
   createLight();
   creatPlane();
   await textBulider.init();
-  creatStocklinePlane();
-  // importPlantModel();
+  createDividingRule();
+  importFactoryModel();
   initHelper();
-  // renderLightAndShadow();
-  createStockline();
-
+  // createStockline();
+  creatStocklinePlane('A', 0);
+  creatStocklinePlane('B', 50);
+  creatStocklinePlane('C', 100);
+  creatStocklinePlane('D', 150);
+  creatStocklinePlane('E', 200);
+  creatStocklinePlane('F', 250);
   initRenderer();
+};
+
+const createDividingRule = (length = 500, scale = 50) => {
+  let list = Array.from({ length: length / scale + 1 }, (_, index) => index * scale);
+  const group = new THREE.Group();
+  list.forEach((count) => {
+    const text = textBulider.createText(`${count} m`, {
+      size: 8,
+      depth: 1,
+    });
+    text.rotation.x = -Math.PI / 2;
+    text.position.x = count;
+    group.add(text);
+  });
+  scene.add(group);
+  return group;
 };
 
 const creatPlane = () => {
@@ -72,21 +96,22 @@ const creatPlane = () => {
   planeGeo.translate(500 / 2, -300 / 2, 0);
   const planeMat = new THREE.MeshStandardMaterial({
     wireframe: true,
+    color: 0x919191,
   });
   const plane = new THREE.Mesh(planeGeo, planeMat);
   plane.rotation.x = -Math.PI / 2;
-  console.log(plane.position);
+  plane.position.y = 1;
   scene.add(plane);
 };
 
-const creatStocklinePlane = (name = 'A') => {
-  const width = 600,
+const creatStocklinePlane = (name = 'A', positionZ = 0) => {
+  const width = 400,
     height = 30;
   const stocklinePlaneGeo = new THREE.PlaneGeometry(width, height, 10, 10);
   stocklinePlaneGeo.translate(width / 2, -height / 2, 0);
   const stocklinePlaneMat = new THREE.MeshStandardMaterial({
     wireframe: false,
-    color: new THREE.Color('#c2d1e5'),
+    color: new THREE.Color('#c3d2e5'),
   });
   const Stockline = new THREE.Mesh(stocklinePlaneGeo, stocklinePlaneMat);
   Stockline.rotation.x = -Math.PI / 2;
@@ -105,14 +130,14 @@ const creatStocklinePlane = (name = 'A') => {
   });
   text2.rotation.x = -Math.PI / 2;
   text2.position.z = 24;
-  text2.position.x = width + 0;
+  text2.position.x = width + 5;
   // 组合
   const group = new THREE.Group();
   group.add(Stockline);
   group.add(text1);
   group.add(text2);
   // 移动
-  // group.position.z = 100;
+  group.position.z = positionZ;
   scene.add(group);
 };
 
@@ -128,7 +153,6 @@ const createStocklineGeometry = async () => {
     let xIndex = 0;
     let zIndex = 0;
     const v3List = [];
-    console.log(yList.length, 'yList.length');
     for (let yIndex = 0; yIndex < yList.length; yIndex++) {
       v3List.push(xList[xIndex] / 10, yList[yIndex] / 10, zList[zIndex] / 10);
       xIndex++;
@@ -138,7 +162,7 @@ const createStocklineGeometry = async () => {
         if (zIndex == zCount) zIndex = 0;
       }
     }
-    console.log(v3List);
+    // console.log(v3List);
 
     const geometry = new THREE.BufferGeometry();
 
@@ -268,6 +292,7 @@ const createStocklineSegmentationMaterial = () => {
   precision highp float;
   uniform float segment;
   uniform float length;
+  uniform sampler2D texture;  // 定义贴图采样器
   varying vec3 fPosition;
   varying vec2 vUv;
 
@@ -296,6 +321,8 @@ const createStocklineSegmentationMaterial = () => {
 
   void main(){
     d_color();
+    // vec4 texColor = texture2D(texture, vUv);  // 根据UV坐标从贴图中采样颜色
+    // gl_FragColor = texColor;  // 将采样到的颜色输出
   }
 `;
 
@@ -308,6 +335,7 @@ const createStocklineSegmentationMaterial = () => {
       type: 'f',
       value: 400.0, // 长度
     },
+    texture: { value: new THREE.TextureLoader().load('/public/texture/sand.png') }, // 加载贴图
   };
 
   const material = new THREE.ShaderMaterial({
@@ -322,7 +350,7 @@ const createStocklineSegmentationMaterial = () => {
 const createStockline = async () => {
   try {
     const geometry = await createStocklineGeometry();
-    const material = createStocklineSegmentationMaterial();
+    const material = createStocklineMaterial();
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = 0.01;
     mesh.position.z = 1;
@@ -334,20 +362,27 @@ const createStockline = async () => {
 };
 
 // 导入工厂模型
-const importPlantModel = () => {
+const importFactoryModel = () => {
   const loader = new GLTFLoader();
   loader.load(
-    '/public/model/silo/e.glb',
+    '/public/model/silo/d.glb',
     function (gltf) {
-      console.log(gltf);
-      scene.add(gltf.scene);
+      const silo = gltf.scene;
+      silo.scale.set(6.2, 6.2, 6.2);
+      silo.rotation.y = Math.PI;
+      silo.position.x = 260;
+      silo.position.z = 140;
+      silo.position.y = -0.1;
 
-      gltf.scene.traverse(function (child) {
+      scene.add(silo);
+      silo.traverse(function (child) {
         if (child.isMesh) {
-          child.material = new THREE.MeshStandardMaterial({
-            emissive: child.material.color,
-            emissiveMap: child.material.map,
-          });
+          // child.frustumCulled = false;
+          //模型阴影
+          // child.castShadow = true;
+          //模型自发光
+          child.material.emissive = child.material.color;
+          child.material.emissiveMap = child.material.map;
         }
       });
     },
@@ -369,15 +404,18 @@ onMounted(() => {
 const initRenderer = () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   // 设置阴影属性
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // renderer.shadowMap.enabled = true;
+  // renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  //
+  renderer.physicallyCorrectLights = true;
+  renderer.toneMapping = THREE.LinearToneMapping;
 
   // 清除所有子元素
   document.body.innerHTML = '';
   document.body.appendChild(renderer.domElement);
   // renderer.render(scene, camera)
 
-  controls.target = new THREE.Vector3(400, 0, 0);
+  controls.target = new THREE.Vector3(250, 0, 0);
   const animate = () => {
     controls.update();
     renderer.render(scene, camera);
@@ -411,7 +449,7 @@ const initScene = () => {
 透视相机设置: 位置与指向
 */
 const initCamera = () => {
-  camera.position.set(400, 200, 400);
+  camera.position.set(250, 200, 500);
   // camera.lookAt(new THREE.Vector3(400, 100, 10)); 添加控制器无效
 };
 
@@ -419,15 +457,14 @@ const initCamera = () => {
 光线: 环境光
 */
 const createLight = () => {
-  const ambientLight = new THREE.AmbientLight(0x404040, 1); // 柔和的白光
+  const ambientLight = new THREE.AmbientLight(0x404040, 2); // 柔和的白光
   scene.add(ambientLight);
 
-  // 设置光源
-  const light = new THREE.HemisphereLight(0xffffff, 0x444444); // 半球光
+  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 2); // 半球光
   scene.add(light);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff); // 定向光
-  directionalLight.position.set(5, 10, 7.5);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1); // 定向光
+  directionalLight.position.set(400, 100, 0);
   scene.add(directionalLight);
 };
 
@@ -443,33 +480,5 @@ const initHelper = () => {
   // const divisions = 600; // 坐标格细分次数
   // const gridHelper = new THREE.GridHelper(size, divisions);
   // scene.add(gridHelper);
-};
-
-/* 光线与阴影场景 */
-const renderLightAndShadow = () => {
-  // 接受阴影的平面
-  const planeGeometry = new THREE.PlaneGeometry(100, 100);
-  const martrail = new THREE.MeshPhongMaterial({
-    color: new THREE.Color('#1cd66c'),
-    side: THREE.DoubleSide,
-  });
-  const plane = new THREE.Mesh(planeGeometry, martrail);
-  plane.receiveShadow = true; // 接受阴影
-  plane.rotation.x = -Math.PI / 2;
-  scene.add(plane);
-
-  // 投射阴影的立方体
-  const cubeGeometry = new THREE.BoxGeometry(10, 10, 10);
-  const cubeMaterial = new THREE.MeshPhongMaterial({ color: 0x44aa88 });
-  const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-  cube.position.set(0, 10, 0);
-  cube.castShadow = true; // 投射阴影
-  scene.add(cube);
-
-  // 添加光源
-  const light = new THREE.DirectionalLight(0xffffff, 10);
-  light.position.set(5, 150, 10);
-  light.castShadow = true; // 光源投射阴影
-  scene.add(light);
 };
 </script>
