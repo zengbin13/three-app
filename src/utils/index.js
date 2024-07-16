@@ -8,27 +8,19 @@ export default class Stockline {
     this.x = x;
     this.z = z;
     this.name = name;
-    this.layeringMat = this.createLayeringMaterial();
-    this.segmentationMat = this.createSegmentationMaterial();
-    this.materialType = 1; // 1分层 2分段
   }
-  async createStocklineMesh() {
+  async createStocklineMesh(materialType = 1) {
     try {
-      // console.log('创建网格', this.name, '开始');
-      const geometry = await this.createGeometry();
-      // console.log('创建网格', this.name, '结束');
+      console.log('创建网格', this.name, '开始');
+      const geometry = await this.createStocklineGeometry();
+      console.log('创建网格', this.name, '结束-------');
 
-      const mesh = new THREE.Mesh(geometry, this.layeringMat);
-      mesh.name = `stockline-${this.name}`;
-      mesh.toggleMaterial = () => {
-        if (this.materialType == 1) {
-          this.mesh.material = this.segmentationMat;
-          this.materialType = 2;
-        } else if (this.materialType == 2) {
-          this.mesh.material = this.layeringMat;
-          this.materialType = 1;
-        }
-      };
+      // 1 分层 2 分段
+      const material =
+        materialType == 2
+          ? this.createStocklineSegmentationMaterial()
+          : this.createStocklineMaterial();
+      const mesh = new THREE.Mesh(geometry, material);
       this.mesh = mesh;
       return mesh;
     } catch (error) {
@@ -40,26 +32,26 @@ export default class Stockline {
     try {
       // 使用 fetch API 获取数据
       // let response = await fetch('/api/yard/stock/data/file?fileName=1_GridContent.txt');
-      // console.log('fetch', this.name, '开始');
+      console.log('fetch', this.name, '开始');
 
-      let response = await fetch('/public/text/1_GridContent.txt', {
+      let response = await fetch('http://localhost:5173/public/text/1_GridContent.txt', {
         responseType: 'arraybuffer',
       });
 
-      // console.log('fetch', this.name, '过程1');
+      console.log('fetch', this.name, '过程1');
 
       // 检查请求是否成功
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      // console.time(`${this.name}数据arrayBuffer`);
+      console.time(`${this.name}数据arrayBuffer`);
       // 将响应数据读取为 ArrayBuffer
-      // console.log('fetch', this.name, '读取arrayBuffer');
+      console.log(this.name, '读取arrayBuffer开始');
 
       let arrayBuffer = await response.arrayBuffer();
-      // console.timeEnd(`${this.name}数据arrayBuffer`);
+      console.timeEnd(`${this.name}数据arrayBuffer`);
 
-      // console.log('fetch', this.name, '过程2');
+      console.log(this.name, '读取arrayBuffer结束');
 
       // 创建 DataView 用于读取 ArrayBuffer
       let dataView = new DataView(arrayBuffer);
@@ -75,20 +67,19 @@ export default class Stockline {
         const value = dataView.getFloat32(i * 4, true); // true 表示小端字节序
         floatArray[i] = value < 0.1 ? 0 : parseInt(value * 10);
       }
-
       return floatArray;
     } catch (error) {
       console.error('Error fetching and processing data:', error);
     }
   }
   // 创建几何体
-  async createGeometry() {
+  async createStocklineGeometry() {
     try {
-      // console.log('创建几何体', this.name, '开始');
+      console.log('创建几何体', this.name, '开始');
 
       // console.time(`${this.name}点位数据`);
       const yList = await this.fetchAndConvertByteStream();
-      // console.log('创建几何体', this.name, '完成');
+      console.log('创建几何体', this.name, '完成');
 
       // console.timeEnd(`${this.name}点位数据`);
       // console.time(`${this.name}三维数据`);
@@ -143,7 +134,7 @@ export default class Stockline {
     }
   }
   // 分层材质
-  createLayeringMaterial() {
+  createStocklineMaterial() {
     // 顶点着色器
     const vertexShader = `
   // 指定浮点数的精度为高精度
@@ -226,7 +217,7 @@ export default class Stockline {
     return material;
   }
   // 分段材质
-  createSegmentationMaterial() {
+  createStocklineSegmentationMaterial() {
     // 顶点着色器
     const vertexShader = `
 varying vec3 vNormal;
@@ -317,3 +308,9 @@ void main() {
     return material;
   }
 }
+
+new Stockline('A1').createStocklineMesh();
+new Stockline('B1').createStocklineMesh();
+new Stockline('C1').createStocklineMesh();
+new Stockline('E1').createStocklineMesh();
+new Stockline('F1').createStocklineMesh();

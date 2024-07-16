@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "delaunator": "^5.0.1",
+    "sass": "^1.77.8",
     "three": "^0.166.1",
     "vue": "^3.4.29"
   },
