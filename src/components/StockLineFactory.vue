@@ -6,10 +6,13 @@
 import * as THREE from 'three';
 import { ref, onMounted } from 'vue';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+import TWEEN from '@tweenjs/tween.js';
 import TextUtil from '@/utils/TextUtil';
-import Stockline from '@/utils/Stockline';
-const textBulider = new TextUtil();
+import Loader from '@/utils/Loader';
+import configResources from '@/config/resources';
+
+import Stockline from '@/elements/Stockline';
 
 // 创建 场景/相机/渲染器
 const scene = new THREE.Scene();
@@ -19,6 +22,48 @@ const renderer = new THREE.WebGLRenderer({
 });
 const controls = new OrbitControls(camera, renderer.domElement);
 
+//  工具函数
+const textBulider = new TextUtil();
+const loader = new Loader();
+loader.load(configResources);
+loader.onLoadEnd((resources) => {
+  console.log('resources', resources);
+  // 导入工厂模型
+  if (resources.factory) {
+    const silo = resources.factory.scene;
+    silo.scale.set(6.2, 6.2, 6.2);
+    silo.rotation.y = Math.PI;
+    silo.position.x = 230;
+    silo.position.z = 130;
+    silo.position.y = -0.1;
+
+    scene.add(silo);
+    silo.traverse(function (child) {
+      if (child.isMesh) {
+        // child.frustumCulled = false;
+        //模型阴影
+        // child.castShadow = true;
+        //模型自发光
+        child.material.emissive = child.material.color;
+        child.material.emissiveMap = child.material.map;
+      }
+    });
+  }
+  // 堆取料机
+  if (resources.stacker) {
+    const stacker = resources.stacker;
+    stacker.scale.set(0.02, 0.02, 0.02);
+    stacker.position.y = 11;
+    scene.add(stacker);
+  }
+  // 凤凰
+  if (resources.phoenix) {
+    const phoenix = resources.phoenix.scene;
+    scene.add(phoenix);
+    new TWEEN.Tween(phoenix.position).to({ x: 3000, y: 50 }, 12000).start();
+  }
+});
+
 const init = async () => {
   initScene();
   initCamera();
@@ -26,13 +71,13 @@ const init = async () => {
   // creatPlane();
   await textBulider.init();
   createDividingRule();
-  importFactoryModel();
+  // importFactoryModel();
   initHelper();
 
   creatStocklinePlane('A', 0);
-  creatStocklinePlane('B', 50);
-  creatStocklinePlane('C', 100);
-  creatStocklinePlane('D', 150);
+  // creatStocklinePlane('B', 50);
+  // creatStocklinePlane('C', 100);
+  // creatStocklinePlane('D', 150);
   // creatStocklinePlane('E', 200);
   // creatStocklinePlane('F', 250);
   initRenderer();
@@ -112,38 +157,6 @@ const creatStocklinePlane = async (name = 'A', positionZ = 0) => {
   return group;
 };
 
-// 导入工厂模型
-const importFactoryModel = () => {
-  const loader = new GLTFLoader();
-  loader.load(
-    '/public/model/silo/d.glb',
-    function (gltf) {
-      const silo = gltf.scene;
-      silo.scale.set(6.2, 6.2, 6.2);
-      silo.rotation.y = Math.PI;
-      silo.position.x = 230;
-      silo.position.z = 130;
-      silo.position.y = -0.1;
-
-      scene.add(silo);
-      silo.traverse(function (child) {
-        if (child.isMesh) {
-          // child.frustumCulled = false;
-          //模型阴影
-          // child.castShadow = true;
-          //模型自发光
-          child.material.emissive = child.material.color;
-          child.material.emissiveMap = child.material.map;
-        }
-      });
-    },
-    undefined,
-    function (error) {
-      console.error(error);
-    }
-  );
-};
-
 onMounted(() => {
   init();
   window.addEventListener('resize', onWindowResize);
@@ -167,11 +180,12 @@ const initRenderer = () => {
   // renderer.render(scene, camera)
 
   controls.target = new THREE.Vector3(250, 0, 200);
-  controls.enableDamping = true;
+  controls.enableDamping = false;
   controls.enableRotate = true;
   controls.enableZoom = true;
   const animate = () => {
     controls.update();
+    TWEEN.update();
     renderer.render(scene, camera);
   };
   renderer.setAnimationLoop(animate);
@@ -205,6 +219,17 @@ const initScene = () => {
 const initCamera = () => {
   camera.position.set(250, 100, 400);
   //camera.lookAt(new THREE.Vector3(250, 0, -1000)); //添加控制器无效
+
+  //相机圆周运动的半径  '
+  // const R = 600;
+  // new TWEEN.Tween({ angle: 0 })
+  //   .to({ angle: Math.PI * 2 }, 16000)
+  //   .onUpdate(function (obj) {
+  //     camera.position.x = R * Math.cos(obj.angle);
+  //     camera.position.z = R * Math.sin(obj.angle);
+  //     camera.lookAt(0, 0, 0);
+  //   })
+  //   .start();
 };
 
 /*

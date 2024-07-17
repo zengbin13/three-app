@@ -1,7 +1,11 @@
 <template>
   <StockLineFactory ref="factoryRef"></StockLineFactory>
   <div id="panel">
-    <div class="content"><button @click="toggleMaterial">切换</button></div>
+    <div class="content">
+      <button @click="toggleMaterial" class="shadow-btn">切换材质</button>
+      <button @click="toggleMaterial" class="shadow-btn">切换材质</button>
+      <button @click="toggleMaterial" class="shadow-btn">切换材质</button>
+    </div>
   </div>
 </template>
 
@@ -11,7 +15,6 @@ import StockLineFactory from './components/StockLineFactory.vue';
 
 const factoryRef = ref(null);
 const toggleMaterial = () => {
-  console.log(factoryRef.value, 111);
   factoryRef.value?.toggleStockLineMaterial();
 };
 </script>
@@ -29,5 +32,35 @@ const toggleMaterial = () => {
 }
 .content {
   pointer-events: auto;
+  padding: 20px;
+  button {
+    cursor: pointer;
+  }
+  button + button {
+    margin-left: 20px;
+  }
+}
+
+.shadow-btn {
+  padding: 10px 20px;
+  border: none;
+  font-size: 17px;
+  color: #fff;
+  border-radius: 7px;
+  letter-spacing: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: 0.5s;
+  transition-property: box-shadow;
+}
+
+.shadow-btn {
+  background: rgb(0, 140, 255);
+  box-shadow: 0 0 25px rgb(0, 140, 255);
+}
+
+.shadow-btn:hover {
+  box-shadow: 0 0 5px rgb(0, 140, 255), 0 0 25px rgb(0, 140, 255), 0 0 50px rgb(0, 140, 255),
+    0 0 100px rgb(0, 140, 255);
 }
 </style>
